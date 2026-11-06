@@ -22,14 +22,15 @@ provider "aws" {
   region = "eu-west-1"
 }
 
+# Get current public IP address dynamically
 data "http" "my_ip" {
   url = "https://checkip.amazonaws.com"
 }
 
-# Security Group created by Terraform
+# Application Security Group
 resource "aws_security_group" "allow_ports" {
 
-  # Security Group name required by the task
+  # Security Group name
   name = "tech613-nowres-tf-allow-port-22-3000-80"
 
   # Allow SSH from my machine only
@@ -41,7 +42,7 @@ resource "aws_security_group" "allow_ports" {
     cidr_blocks = ["${chomp(data.http.my_ip.response_body)}/32"]
   }
 
-  # Allow application access from anywhere
+  # Allow application traffic
   ingress {
     description = "Port 3000 access"
     from_port   = 3000
@@ -50,7 +51,7 @@ resource "aws_security_group" "allow_ports" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow web traffic from anywhere
+  # Allow web traffic
   ingress {
     description = "HTTP access"
     from_port   = 80
@@ -72,13 +73,40 @@ resource "aws_security_group" "allow_ports" {
   }
 }
 
-# Create an EC2 instance
+# Database Security Group
+resource "aws_security_group" "db_sg" {
+
+  # Database Security Group name
+  name = "tech613-nowres-db-sg"
+
+  # Allow MongoDB traffic only from the App Security Group
+  ingress {
+    from_port       = 27017
+    to_port         = 27017
+    protocol        = "tcp"
+    security_groups = [aws_security_group.allow_ports.id]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "tech613-nowres-db-sg"
+  }
+}
+
+# Create App EC2 instance
 resource "aws_instance" "my_first_tf_instance" {
 
-  # Ubuntu 22.04 AMI
-  ami = var.test_ami_id
+  # Custom Tic Tac Toe App AMI
+  ami = var.ttt_ami_id
 
-  # Instance size
+  # EC2 instance size
   instance_type = var.instance_type
 
   # Existing AWS Key Pair
@@ -87,13 +115,45 @@ resource "aws_instance" "my_first_tf_instance" {
   # Assign a public IP address
   associate_public_ip_address = true
 
-  # Attach Security Group created above
+  # Attach App Security Group
   vpc_security_group_ids = [
     aws_security_group.allow_ports.id
   ]
 
-  # Instance Name tag
+  # Run user data script on first boot
+  user_data = templatefile("app-user-data.sh", {
+    db_ip = aws_instance.database_vm.private_ip
+  })
+
+
   tags = {
     Name = var.instance_name
   }
+}
+
+# Create Database EC2 instance
+resource "aws_instance" "database_vm" {
+
+  # Custom Database AMI
+  ami = var.db_ami_id
+
+  # EC2 instance size
+  instance_type = var.instance_type
+
+  # Existing AWS Key Pair
+  key_name = var.key_name
+
+  # Attach Database Security Group
+  vpc_security_group_ids = [
+    aws_security_group.db_sg.id
+  ]
+
+  tags = {
+    Name = var.db_instance_name
+  }
+}
+
+# Output database private IP address
+output "database_private_ip" {
+  value = aws_instance.database_vm.private_ip
 }
