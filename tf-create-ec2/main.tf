@@ -1,8 +1,29 @@
+# Specify the providers Terraform will use
+terraform {
+  required_providers {
+
+    # AWS provider for creating AWS resources
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+
+    # HTTP provider used to retrieve my current public IP address dynamically
+    http = {
+      source = "hashicorp/http"
+    }
+  }
+}
+
 # Create infrastructure in AWS Ireland region
 provider "aws" {
 
   # AWS Region (Ireland)
   region = "eu-west-1"
+}
+
+data "http" "my_ip" {
+  url = "https://checkip.amazonaws.com"
 }
 
 # Security Group created by Terraform
@@ -17,7 +38,7 @@ resource "aws_security_group" "allow_ports" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["82.0.119.155/32"]
+    cidr_blocks = ["${chomp(data.http.my_ip.response_body)}/32"]
   }
 
   # Allow application access from anywhere
@@ -55,13 +76,16 @@ resource "aws_security_group" "allow_ports" {
 resource "aws_instance" "my_first_tf_instance" {
 
   # Ubuntu 22.04 AMI
-  ami = "ami-0c1c30571d2dae5c9"
+  ami = var.test_ami_id
 
   # Instance size
-  instance_type = "t3.micro"
+  instance_type = var.instance_type
 
   # Existing AWS Key Pair
-  key_name = "tech613-nowres-aws-key"
+  key_name = var.key_name
+
+  # Assign a public IP address
+  associate_public_ip_address = true
 
   # Attach Security Group created above
   vpc_security_group_ids = [
@@ -70,6 +94,6 @@ resource "aws_instance" "my_first_tf_instance" {
 
   # Instance Name tag
   tags = {
-    Name = "tech613-nowres-tf-first-vm"
+    Name = var.instance_name
   }
 }

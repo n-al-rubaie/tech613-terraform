@@ -1,5 +1,5 @@
-variable test_ami_id {
-  default = "ami-0c1c30571d2dae5c9"
+variable "test_ami_id" {
+  default = "ami-08589c5b85a9fba1a"
 }
 
 variable "instance_type" {
@@ -13,3 +13,4 @@ variable "key_name" {
 variable "instance_name" {
   default = "tech613-nowres-tf-first-vm"
 }
+
