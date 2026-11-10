@@ -12,7 +12,7 @@ variable "key_name" {
 }
 
 variable "instance_name" {
-  default = "tech613-nowres-tf-first-vm"
+  default = "tech613-nowres-ttt-app-vm"
 }
 
 # Database AMI
